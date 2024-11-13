@@ -3,6 +3,34 @@ Capstone: Bike-sharing Data Analysis
 Anna Papalexopoulou
 2024-11-04
 
+- [Introduction](#introduction)
+- [Executive Summary](#executive-summary)
+- [\[Step 1\] - Load Libraries and Collect
+  Data](#step-1---load-libraries-and-collect-data)
+- [\[Step 2\] - Wrangle Data and Combine into a Single
+  File](#step-2---wrangle-data-and-combine-into-a-single-file)
+  - [Ensure Consistent Column Names](#ensure-consistent-column-names)
+  - [Stack Dataframes and Remove Unneeded
+    Columns](#stack-dataframes-and-remove-unneeded-columns)
+- [\[Step 3\] - Clean and Prepare Data for
+  Analysis](#step-3---clean-and-prepare-data-for-analysis)
+  - [1. Consolidate Member and Casual
+    Labels](#1-consolidate-member-and-casual-labels)
+  - [2. Add Date Components](#2-add-date-components)
+  - [3. Add Ride Length](#3-add-ride-length)
+  - [4. Remove Inaccurate Data](#4-remove-inaccurate-data)
+- [\[Step 4\] - Conduct Descriptive
+  Analysis](#step-4---conduct-descriptive-analysis)
+  - [1. Ride Lengths by User Type](#1-ride-lengths-by-user-type)
+  - [2. Ride Counts by Day of the Week per User
+    Type](#2-ride-counts-by-day-of-the-week-per-user-type)
+  - [3. Peak Ride Hours by User Type](#3-peak-ride-hours-by-user-type)
+  - [4. Most Popular Stations by User
+    Type](#4-most-popular-stations-by-user-type)
+  - [5. Most Popular Routes by User
+    Type](#5-most-popular-routes-by-user-type)
+- [Recommendations](#recommendations)
+
 # Introduction
 
 Divvy, a bike-sharing service operated by Lyft Bikes and Scooters, LLC
@@ -75,6 +103,7 @@ this report.
 # Load libraries for data wrangling and conflict management
 library(tidyverse)
 library(conflicted)
+library(scales)
 
 # Set dplyr::filter and dplyr::lag as defaults to resolve conflicts
 conflict_prefer("filter", "dplyr")
@@ -102,9 +131,10 @@ colnames(q1_2019)
 colnames(q1_2020)
 ```
 
-    ##  [1] "ride_id"            "rideable_type"      "started_at"         "ended_at"          
-    ##  [5] "start_station_name" "start_station_id"   "end_station_name"   "end_station_id"    
-    ##  [9] "start_lat"          "start_lng"          "end_lat"            "end_lng"           
+    ##  [1] "ride_id"            "rideable_type"      "started_at"        
+    ##  [4] "ended_at"           "start_station_name" "start_station_id"  
+    ##  [7] "end_station_name"   "end_station_id"     "start_lat"         
+    ## [10] "start_lng"          "end_lat"            "end_lng"           
     ## [13] "member_casual"
 
 ``` r
@@ -148,10 +178,12 @@ Inspect the new table that has been created
 colnames(all_trips)  #List of column names
 ```
 
-    ##  [1] "ride_id"            "started_at"         "ended_at"           "rideable_type"     
-    ##  [5] "start_station_id"   "start_station_name" "end_station_id"     "end_station_name"  
-    ##  [9] "member_casual"      "date"               "month"              "day"               
-    ## [13] "year"               "day_of_week"        "ride_length"
+    ##  [1] "ride_id"            "started_at"         "ended_at"          
+    ##  [4] "rideable_type"      "start_station_id"   "start_station_name"
+    ##  [7] "end_station_id"     "end_station_name"   "member_casual"     
+    ## [10] "date"               "month"              "day"               
+    ## [13] "year"               "day_of_week"        "ride_length"       
+    ## [16] "hour"
 
 ``` r
 nrow(all_trips)  #How many rows are in data frame?
@@ -171,33 +203,41 @@ summary(all_trips)  #Statistical summary of data. Mainly for numerics
     ##                     3rd Qu.:2020-02-19 19:31:54.75   3rd Qu.:2020-02-19 19:51:54.50  
     ##                     Max.   :2020-03-31 23:51:34.00   Max.   :2020-05-19 20:10:34.00  
     ##                                                                                      
-    ##  rideable_type      start_station_id start_station_name end_station_id  end_station_name  
-    ##  Length:791956      Min.   :  2.0    Length:791956      Min.   :  2.0   Length:791956     
-    ##  Class :character   1st Qu.: 77.0    Class :character   1st Qu.: 77.0   Class :character  
-    ##  Mode  :character   Median :174.0    Mode  :character   Median :174.0   Mode  :character  
-    ##                     Mean   :204.4                       Mean   :204.4                     
-    ##                     3rd Qu.:291.0                       3rd Qu.:291.0                     
-    ##                     Max.   :675.0                       Max.   :675.0                     
-    ##                                                         NA's   :1                         
-    ##  member_casual           date               month               day           
-    ##  Length:791956      Min.   :2019-01-01   Length:791956      Length:791956     
-    ##  Class :character   1st Qu.:2019-02-28   Class :character   Class :character  
-    ##  Mode  :character   Median :2020-01-07   Mode  :character   Mode  :character  
-    ##                     Mean   :2019-08-31                                        
-    ##                     3rd Qu.:2020-02-19                                        
-    ##                     Max.   :2020-03-31                                        
+    ##  rideable_type      start_station_id start_station_name end_station_id 
+    ##  Length:791956      Min.   :  2.0    Length:791956      Min.   :  2.0  
+    ##  Class :character   1st Qu.: 77.0    Class :character   1st Qu.: 77.0  
+    ##  Mode  :character   Median :174.0    Mode  :character   Median :174.0  
+    ##                     Mean   :204.4                       Mean   :204.4  
+    ##                     3rd Qu.:291.0                       3rd Qu.:291.0  
+    ##                     Max.   :675.0                       Max.   :675.0  
+    ##                                                         NA's   :1      
+    ##  end_station_name   member_casual           date               month          
+    ##  Length:791956      Length:791956      Min.   :2019-01-01   Length:791956     
+    ##  Class :character   Class :character   1st Qu.:2019-02-28   Class :character  
+    ##  Mode  :character   Mode  :character   Median :2020-01-07   Mode  :character  
+    ##                                        Mean   :2019-08-31                     
+    ##                                        3rd Qu.:2020-02-19                     
+    ##                                        Max.   :2020-03-31                     
     ##                                                                               
-    ##      year           day_of_week         ride_length      
-    ##  Length:791956      Length:791956      Min.   :    -552  
-    ##  Class :character   Class :character   1st Qu.:     328  
-    ##  Mode  :character   Mode  :character   Median :     537  
-    ##                                        Mean   :    1184  
-    ##                                        3rd Qu.:     910  
-    ##                                        Max.   :10632022  
+    ##      day                year           day_of_week         ride_length      
+    ##  Length:791956      Length:791956      Length:791956      Min.   :    -552  
+    ##  Class :character   Class :character   Class :character   1st Qu.:     328  
+    ##  Mode  :character   Mode  :character   Mode  :character   Median :     537  
+    ##                                                           Mean   :    1184  
+    ##                                                           3rd Qu.:     910  
+    ##                                                           Max.   :10632022  
+    ##                                                                             
+    ##       hour      
+    ##  Min.   : 0.00  
+    ##  1st Qu.: 9.00  
+    ##  Median :14.00  
+    ##  Mean   :13.28  
+    ##  3rd Qu.:17.00  
+    ##  Max.   :23.00  
     ## 
 
 ``` r
-#Additional function we could use to inspect data
+# Additional functions we could use to inspect data
 head(all_trips)  #See the first 6 rows of data frame.  Also tail(all_trips)
 str(all_trips)  #See list of columns and data types (numeric, character, etc)
 ```
@@ -223,7 +263,7 @@ There are a few problems we will need to fix:
 ## 1. Consolidate Member and Casual Labels
 
 ``` r
-#Reassign to standard member/casual labels for consistency
+# Reassign to standard member/casual labels for consistency
 ## Before 2020, Divvy used different labels for these two types of riders ... we will want to make our dataframe consistent with their current nomenclature
 
 # Begin by seeing how many observations fall under each usertype
@@ -233,6 +273,12 @@ table(all_trips$member_casual)
     ## 
     ## casual member 
     ##  71643 720313
+
+``` r
+sum(is.na(all_trips$member_casual)) #make sure there are no NA values
+```
+
+    ## [1] 0
 
 ``` r
 # Reassign to the desired values (we will go with the current 2020 labels)
@@ -312,7 +358,7 @@ that can indicate possible conversion strategies, we will analyze:
 ``` r
 # Summarize ride length statistics by user type
 summary_by_type <- all_trips_v2 %>%
-  group_by(member_casual) %>%
+  group_by(member_casual, .drop = TRUE) %>%
   summarise(
     average_ride_length = mean(ride_length, na.rm = TRUE), #straight average (total ride length / rides)
     median_ride_length = median(ride_length, na.rm = TRUE), #midpoint number in the ascending array of ride lengths
@@ -332,16 +378,19 @@ summary_by_type
 # Visualization for average ride duration per user
 all_trips_v2 %>% 
   mutate(weekday = wday(started_at, label = TRUE)) %>% 
-  group_by(member_casual, weekday) %>% 
+  group_by(member_casual, weekday, .drop = TRUE) %>% 
   summarise(number_of_rides = n()
-            ,average_duration = mean(ride_length)) %>% 
+            ,average_duration = mean(ride_length, na.rm = TRUE)) %>% 
   arrange(member_casual, weekday)  %>% 
   ggplot(aes(x = weekday, y = average_duration, fill = member_casual)) +
-  geom_col(position = "dodge") +
+  geom_col(position = "dodge", na.rm = TRUE) +
+  scale_fill_manual(values = c("casual" = "orange", "member" = "blue")) +
+  scale_y_continuous(labels = label_comma()) +
+  labs(title = "Average Ride Duration by User Type", x = "Day of Week", y = "Average Duration (s)", fill = "Rider Type") +
     theme_minimal()
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-9-1.png)<!-- -->
+![](Capstone_Ridesharing_AP_FV_files/figure-gfm/unnamed-chunk-22-1.png)<!-- -->
 
 **Summary**: Casual riders typically have longer ride lengths compared
 to members, suggesting more recreational usage.
@@ -352,7 +401,7 @@ to members, suggesting more recreational usage.
 # Weekly ride counts for each user type
 weekly_rides <- all_trips_v2 %>%
   mutate(day_of_week = ordered(day_of_week, levels=c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))) %>%
-  group_by(member_casual, day_of_week) %>%
+  group_by(member_casual, day_of_week, .drop = TRUE) %>%
   summarise(number_of_rides = n())
 
 print(weekly_rides)
@@ -380,12 +429,17 @@ print(weekly_rides)
 ``` r
 # Visualization
 ggplot(data = weekly_rides, aes(x = day_of_week, y = number_of_rides, fill = member_casual)) +
-  geom_col(position = "dodge") +
-  labs(title = "Weekly Ride Counts by User Type", x = "Day of Week", y = "Number of Rides", fill = "Rider Type") +
-  theme_minimal()
+  geom_col(position = "dodge", na.rm = TRUE) +
+  scale_fill_manual(values = c("casual" = "orange", "member" = "blue")) +
+  scale_y_continuous(labels = label_comma()) +
+  labs(title = "Weekly Ride Counts by User Type", x = "Day of Week", y = "Number of Rides (count)", fill = "Rider Type") +
+  theme_minimal() +
+  theme(
+      axis.text.x = element_text(angle = 45, hjust = 1)  # Rotate x-axis labels for readability
+   )
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-10-1.png)<!-- -->
+![](Capstone_Ridesharing_AP_FV_files/figure-gfm/unnamed-chunk-23-1.png)<!-- -->
 
 **Summary:** Casual riders are more active on weekends, whereas members
 show steady usage through the week, suggesting a commuting pattern.
@@ -396,18 +450,20 @@ show steady usage through the week, suggesting a commuting pattern.
 # Analyze peak ride hours
 all_trips <- all_trips %>% mutate(hour = hour(started_at))
 hourly_rides <- all_trips %>%
-  group_by(member_casual, hour) %>%
+  group_by(member_casual, hour, .drop = TRUE) %>%
   summarise(total_rides = n())
 
 # Visualization
 ggplot(data = hourly_rides, aes(x = hour, y = total_rides, fill = member_casual)) +
-  geom_bar(stat = "identity", position = "dodge") +
-  facet_wrap(~ member_casual) +
-  labs(title = "Peak Ride Hours by User Type", x = "Hour of Day", y = "Total Rides", fill = "Rider Type") +
+  geom_bar(stat = "identity", position = "dodge", na.rm = TRUE) +
+  facet_grid(member_casual ~ .) +
+  scale_fill_manual(values = c("casual" = "orange", "member" = "blue")) +
+  scale_y_continuous(labels = label_comma()) +
+  labs(title = "Peak Ride Hours by User Type", x = "Hour of Day", y = "Total Rides (count)", fill = "Rider Type") +
   theme_minimal()
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-11-1.png)<!-- -->
+![](Capstone_Ridesharing_AP_FV_files/figure-gfm/unnamed-chunk-24-1.png)<!-- -->
 
 **Summary:** Annual members commute in the early morning and late
 afternoon hours, peeking at 8am and 6pm, whereas the usage for casual
@@ -419,44 +475,48 @@ riders peeks early afternoon around 3pm.
 # Analyze most popular start and end stations by user type
 # Identify top 10 start stations for each user type
 popular_start_stations <- all_trips_v2 %>% 
-  group_by(member_casual,start_station_name) %>% 
+  group_by(member_casual,start_station_name, .drop = TRUE) %>% 
   summarize(total_rides = n()) %>% 
   arrange(desc(total_rides)) %>% 
   slice_max(total_rides, n = 10)  
 
 # Create a bar plot of most popular start stations
 ggplot(data = popular_start_stations, aes(x = total_rides, y = start_station_name, fill = member_casual)) +
-  geom_bar(stat = "identity") +
+  geom_bar(stat = "identity", na.rm = TRUE) +
   facet_wrap(~ member_casual) +
+  scale_fill_manual(values = c("casual" = "orange", "member" = "blue")) +
+  scale_x_continuous(labels = label_comma()) +
   labs(title = "Most Popular Start Stations by User Type",
-       x = "Total Rides",
+       x = "Total Rides (count)",
        y = "Start Station Name",
        fill = "Rider Type") +
   theme_minimal()
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-12-1.png)<!-- -->
+![](Capstone_Ridesharing_AP_FV_files/figure-gfm/unnamed-chunk-25-1.png)<!-- -->
 
 ``` r
 # Identify top 10 end stations for each user type
 popular_end_stations <- all_trips_v2 %>% 
-  group_by(member_casual,end_station_name) %>% 
+  group_by(member_casual,end_station_name, .drop = TRUE) %>% 
   summarize(total_rides = n()) %>% 
   arrange(desc(total_rides)) %>% 
   slice_max(total_rides, n = 10)  
 
 # Create a bar plot of most popular end stations
 ggplot(data = popular_end_stations, aes(x = total_rides, y = end_station_name, fill = member_casual)) +
-  geom_bar(stat = "identity") +
+  geom_bar(stat = "identity", na.rm = TRUE) +
   facet_wrap(~ member_casual) +
+  scale_fill_manual(values = c("casual" = "orange", "member" = "blue")) +
+  scale_x_continuous(labels = label_comma()) +
   labs(title = "Most Popular End Stations by User Type",
-       x = "Total Rides",
+       x = "Total Rides (count)",
        y = "End Station Name",
        fill = "Rider Type") +
   theme_minimal()
 ```
 
-![](README_files/figure-gfm/unnamed-chunk-12-2.png)<!-- -->
+![](Capstone_Ridesharing_AP_FV_files/figure-gfm/unnamed-chunk-25-2.png)<!-- -->
 
 **Summary:** There is little overlap between the preferred stations for
 casual riders and annual members, suggesting different demands in
@@ -473,7 +533,7 @@ all_trips_v2 <- all_trips_v2 %>%
 
 # Top 10 routes by user type
 popular_routes <- all_trips_v2 %>%
-  group_by(member_casual, route) %>%
+  group_by(member_casual, route, .drop = TRUE) %>%
   summarise(total_rides = n()) %>%
   arrange(desc(total_rides)) %>%
   slice_max(total_rides, n = 10)
@@ -483,28 +543,28 @@ popular_routes
 
     ## # A tibble: 20 × 3
     ## # Groups:   member_casual [2]
-    ##    member_casual route                                                        total_rides
-    ##    <chr>         <chr>                                                              <int>
-    ##  1 casual        Lake Shore Dr & Monroe St to Lake Shore Dr & Monroe St               703
-    ##  2 casual        Lake Shore Dr & Monroe St to Streeter Dr & Grand Ave                 632
-    ##  3 casual        Streeter Dr & Grand Ave to Streeter Dr & Grand Ave                   361
-    ##  4 casual        Shedd Aquarium to Streeter Dr & Grand Ave                            345
-    ##  5 casual        Shedd Aquarium to Millennium Park                                    236
-    ##  6 casual        Michigan Ave & Oak St to Michigan Ave & Oak St                       228
-    ##  7 casual        Millennium Park to Millennium Park                                   212
-    ##  8 casual        Lake Shore Dr & Monroe St to Shedd Aquarium                          199
-    ##  9 casual        Millennium Park to Streeter Dr & Grand Ave                           199
-    ## 10 casual        Dusable Harbor to Streeter Dr & Grand Ave                            196
-    ## 11 member        Michigan Ave & Washington St to Clinton St & Washington Blvd         961
-    ## 12 member        Canal St & Adams St to Michigan Ave & Washington St                  897
-    ## 13 member        Columbus Dr & Randolph St to Clinton St & Washington Blvd            841
-    ## 14 member        Canal St & Madison St to Michigan Ave & Washington St                839
-    ## 15 member        Michigan Ave & Washington St to Canal St & Adams St                  790
-    ## 16 member        Clinton St & Washington Blvd to Michigan Ave & Washington St         695
-    ## 17 member        Columbus Dr & Randolph St to State St & Randolph St                  687
-    ## 18 member        Lake Park Ave & 56th St to University Ave & 57th St                  678
-    ## 19 member        Wacker Dr & Washington St to Michigan Ave & Washington St            669
-    ## 20 member        University Ave & 57th St to Lake Park Ave & 56th St                  656
+    ##    member_casual route                                                      total_rides
+    ##    <chr>         <chr>                                                            <int>
+    ##  1 casual        Lake Shore Dr & Monroe St to Lake Shore Dr & Monroe St             703
+    ##  2 casual        Lake Shore Dr & Monroe St to Streeter Dr & Grand Ave               632
+    ##  3 casual        Streeter Dr & Grand Ave to Streeter Dr & Grand Ave                 361
+    ##  4 casual        Shedd Aquarium to Streeter Dr & Grand Ave                          345
+    ##  5 casual        Shedd Aquarium to Millennium Park                                  236
+    ##  6 casual        Michigan Ave & Oak St to Michigan Ave & Oak St                     228
+    ##  7 casual        Millennium Park to Millennium Park                                 212
+    ##  8 casual        Lake Shore Dr & Monroe St to Shedd Aquarium                        199
+    ##  9 casual        Millennium Park to Streeter Dr & Grand Ave                         199
+    ## 10 casual        Dusable Harbor to Streeter Dr & Grand Ave                          196
+    ## 11 member        Michigan Ave & Washington St to Clinton St & Washington B…         961
+    ## 12 member        Canal St & Adams St to Michigan Ave & Washington St                897
+    ## 13 member        Columbus Dr & Randolph St to Clinton St & Washington Blvd          841
+    ## 14 member        Canal St & Madison St to Michigan Ave & Washington St              839
+    ## 15 member        Michigan Ave & Washington St to Canal St & Adams St                790
+    ## 16 member        Clinton St & Washington Blvd to Michigan Ave & Washington…         695
+    ## 17 member        Columbus Dr & Randolph St to State St & Randolph St                687
+    ## 18 member        Lake Park Ave & 56th St to University Ave & 57th St                678
+    ## 19 member        Wacker Dr & Washington St to Michigan Ave & Washington St          669
+    ## 20 member        University Ave & 57th St to Lake Park Ave & 56th St                656
 
 **Summary:** Different popular routes for each type suggest unique
 preferences, with casual riders possibly favoring scenic routes or
